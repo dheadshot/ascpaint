@@ -21,6 +21,7 @@ char inversepalettemode = ' ';
 
 void cleanscr()
 {
+  freers_subs(&rs);
   printf("\033[?1049h\033[2J\033[?1049l\033[?25h");
 }
 
@@ -32,6 +33,8 @@ void on_die(int i)
 void on_resize(int i)
 {
   getscreensize(&rs);
+  
+  //Repaint screen
 }
 
 int maxrowlength(txtrow *arowset, int numrows)
@@ -86,8 +89,10 @@ void DoError(char *errortext)
   if (!dworks)
   {
     //Create new display layer to build on
-    if ((rs.displaylayer_rowset = makerowset(rs.swidth,rs.sheight)) == NULL)
+    if ((rs.displaylayer_rowset = makerowset(rs.swidth,rs.sheight)) == NULL
+       || (rs.dlformat = makerowset(rs.swidth,rs.sheight)) == NULL )
     {
+      if (rs.displaylayer_rowset) freerowset(rs.displaylayer_rowset);
       DoSimpleError(errortext);
       return;
     }
@@ -100,6 +105,7 @@ void DoError(char *errortext)
     {
       rs.displaylayer_rowset[i].rowtext[0] = 0;
       rs.displaylayer_rowset[i].rowsize = 0;
+      memset(rs.dlformat_rowset[i].rowtext,' ',rs.dlformat_rowset[i].rowsize);
     }
   }
   
@@ -184,7 +190,12 @@ void DoError(char *errortext)
   strcpy(rs.displaylayer_rowset[i].rowtext,"|");
   for (j=0;j<((boxw-6)/2)-1;j++)
     strcat(rs.displaylayer_rowset[i].rowtext," ");
-  strcat(rs.displaylayer_rowset[i].rowtext,"| OK |"); //Need to do the inversing elsewhere
+  strcat(rs.displaylayer_rowset[i].rowtext,"| OK |");
+  //Inversing:
+  rs.dlformat_rowset[i].rowtext[1+((boxw-6)/2)] |= DLFORMAT_INVERT;
+  rs.dlformat_rowset[i].rowtext[1+((boxw-6)/2)+1] |= DLFORMAT_INVERT;
+  rs.dlformat_rowset[i].rowtext[1+((boxw-6)/2)+2] |= DLFORMAT_INVERT;
+  rs.dlformat_rowset[i].rowtext[1+((boxw-6)/2)+3] |= DLFORMAT_INVERT;
   for (j=0;j<((boxw-6)/2)-1;j++)
     strcat(rs.displaylayer_rowset[i].rowtext," ");
   strcat(rs.displaylayer_rowset[i].rowtext,"|");
@@ -202,6 +213,8 @@ void DoError(char *errortext)
   strcat(rs.displaylayer_rowset[i].rowtext,"+");
   
   //Draw this at (boxx,boxy)!
+  rs.show_dl = 1;
+  UpdateDisplay();
   
   /*
   printf("\033[%d;%dH",boxy+4+etexth,boxx+(boxw/2)-1);
@@ -327,6 +340,63 @@ void DoSimpleError(char *errortext)
   printf("\033[%d;%dH",oy,ox);
 }
 
+void UpdateDisplay()
+{
+  int i,j, x, y, preformatted = 0;
+  //Do other layers...
+  if (rs.show_dl)
+  {
+    //Draw the display layer
+    x = rs.dl_x;
+    y = rs.dl_y;
+    for (i=0;i<rs.dlrs_size;i++)
+    {
+      printf("\033[%d;%dH\033[0m",y+i,x);
+      preformatted = 0;
+      for (j=0;j<rs.displaylayer_rowset[i].rowsize;j++)
+      {
+        
+        if (j<rs.dlformat_rowset[i].rowsize)
+        {
+          if (preformatted != (rs.dlformat_rowset[i].rowtext[j] & ~(DLFORMAT_IGNORE)))
+          {
+            if (preformatted)
+            {
+              printf("\033[0m");
+            }
+            if ((rs.dlformat_rowset[i].rowtext[j] & DL_INVERT) != 0)
+            {
+              printf("\033[7m");
+            }
+            if ((rs.dlformat_rowset[i].rowtext[j] & 15) != 0)
+            {
+              if ((rs.dlformat_rowset[i].rowtext[j] & 8) != 0)
+              {
+                printf("\033[9%dm", (rs.dlformat_rowset[i].rowtext[j] & 7));
+              }
+              else
+              {
+                printf("\033[3%dm", (rs.dlformat_rowset[i].rowtext[j] & 7));
+              }
+            }
+            
+            
+          }
+          preformatted = (rs.dlformat_rowset[i].rowtext[j] & ~(DLFORMAT_IGNORE));
+        }
+        else if (preformatted)
+        {
+          printf("\033[0m");
+          preformatted = 0;
+        }
+        
+        printf("%c",rs.displaylayer_rowset[i].rowset[j]);
+        
+      }
+    }
+  }
+}
+
 txtrow *makerowset(int width, int height)
 {
   txtrow *thers = NULL;
@@ -416,13 +486,13 @@ int inserttextinrow(txtrow *arow, char *text, int offset)
   numedits++;
 }
 
-int freerow(txtrow *arow)
+void freerow(txtrow *arow)
 {
   if (arow->rowtext) free(arow->rowtext);
   free(arow);
 }
 
-int freerowset(txtrow *arowset, int numrows)
+void freerowset(txtrow *arowset, int numrows)
 {
   int i;
   for (i=0;i<numrows;i++)
@@ -430,6 +500,15 @@ int freerowset(txtrow *arowset, int numrows)
     if (arowset[i].rowtext) free(arowset[i].rowtext);
   }
   free(arowset);
+}
+
+void freers_subs(rows *ars)
+{
+  if (ars->rowset) freerowset(ars->rowset,ars->rs_size);
+  if (ars->movelayer_rowset) freerowset(ars->movelayer_rowset,ars->mlrs_size);
+  if (ars->displaylayer_rowset) freerowset(ars->displaylayer_rowset,ars->dlrs_size);
+  if (ars->dlformat_rowset) freerowset(ars->dlformat_rowset,ars->dlrs_size);
+  
 }
 
 int expandtabs(char *ostr, int omax, const char *istr)
@@ -472,6 +551,7 @@ int deltextfromrow(txtrow *arow, int tlen, int offset)
 int main(int argc, char *argv[])
 {
   int iwidth = 0, iheight = 0;
+  memset(&rs,0,sizeof(rows));
   rs.rowset = NULL;
   rs.rs_size = 0;
   rs.movelayer_rowset = NULL;
@@ -480,6 +560,7 @@ int main(int argc, char *argv[])
   rs.ml_y = 0;
   rs.displaylayer_rowset = NULL;
   rs.dlrs_size = 0;
+  getscreensize(&rs);
   
   atexit(cleanscr);
   signal(SIGTERM, on_die);
@@ -528,10 +609,10 @@ int main(int argc, char *argv[])
     printf("Creating image as %dx%d.\n", iwidth, iheight);
   }
   int x, y;
-  if (getansicursorpos(&y, &x)) printf("gxy");
-  printf("at %d, %d: \n \n", x, y);
+  //if (getansicursorpos(&y, &x)) printf("gxy");
+  //printf("at %d, %d: \n \n", x, y);
   //printf("\033[9999;9999H*");
-  getscreensize(&rs);
+  //getscreensize(&rs);
   //getkeyn();
   printf("Screen Size = %d x %d\n", rs.swidth, rs.sheight);
   DoError("No Program yet!");

@@ -8,6 +8,9 @@
 #define TOOL_SELECT 5
 #define TOOL_MOVE 6
 
+#define DLFORMAT_INVERT 16
+#define DLFORMAT_IGNORE 32
+
 typedef struct rowstruct
 {
   int allocsize; //Allocated size
@@ -26,11 +29,14 @@ typedef struct rows_struct
   int mlrs_size;
   int ml_x, ml_y; //Offset for movelayer with respect to rowset.
   txtrow *displaylayer_rowset; //Row array for display (dialogs)
+  txtrow *dlformat_rowset; //Row array for the formatting of the display (colours etc)
   int dlrs_size; //size of display layer
   int dl_x, dl_y; //offset for display layer from screen
   int view_x, view_y; //View offsets
   int cx, cy; //cursor offsets
   int swidth, sheight; //screen size
+  unsigned char show_ml : 1; //Show the move layer
+  unsigned char show_dl : 1; //Show the display layer
 } rows;
 
 
@@ -41,11 +47,13 @@ int maxrowlength(txtrow *arowset, int numrows);
 int minrowlength(txtrow *arowset, int numrows);
 void DoError(char *errortext);
 void DoSimpleError(char *errortext);
+void UpdateDisplay();
 txtrow *makerowset(int width, int height);
 int getscreensize(rows *ars);
 int inserttextinrow(txtrow *arow, char *text, int offset);
-int freerow(txtrow *arow);
-int freerowset(txtrow *arowset, int numrows);
+void freerow(txtrow *arow);
+void freerowset(txtrow *arowset, int numrows);
+void freers_subs(rows *ars);
 int expandtabs(char *ostr, int omax, const char *istr);
 int deltextfromrow(txtrow *arow, int tlen, int offset);
 int main(int argc, char *argv[]);
