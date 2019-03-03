@@ -124,6 +124,89 @@ void DoError(char *errortext)
   int boxx = (rs.swidth - boxw) / 2;
   int boxy = (rs.sheight - boxh) / 2;
   
+  i = 0;
+  strcpy(rs.displaylayer_rowset[i].rowtext,"+");
+  int j;
+  for (j=0;j<boxw-2;j++) strcat(rs.displaylayer_rowset[i].rowtext,"-");
+  strcat(rs.displaylayer_rowset[i].rowtext,"+");
+  i++
+  strcpy(rs.displaylayer_rowset[i].rowtext,"| ");
+  for (j=0;j<(boxw/2)-5;j++) strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext,"ERROR!");
+  for (j=0;j<(boxw/2)-5;j++) strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext," |");
+  i++;
+  strcpy(rs.displaylayer_rowset[i].rowtext,"+");
+  for (j=0;j<boxw-2;j++) strcat(rs.displaylayer_rowset[i].rowtext,"-");
+  strcat(rs.displaylayer_rowset[i].rowtext,"+");
+  int k;
+  char *tstr = (char *) malloc(sizeof(char)*(1+etextw));
+  if (tstr) tstr[0] = 0;
+  for (k=0; k<etexth; k++)
+  {
+    i++;
+    strcpy(rs.displaylayer_rowset[i].rowtext,"|");
+    for (j=0;j<((boxw-etextw)/2)-1;j++)
+      strcat(rs.displaylayer_rowset[i].rowtext," ");
+    if (!tstr)
+    {
+      strcat(rs.displaylayer_rowset[i].rowtext,errortext);
+      if ((strlen(errortext) & 1) != 0)
+        strcat(rs.displaylayer_rowset[i].rowtext," ");
+      for (j=0;j<((boxw-etextw)/2)-1;j++)
+        strcat(rs.displaylayer_rowset[i].rowtext," ");
+      strcat(rs.displaylayer_rowset[i].rowtext,"|");
+      break;
+    }
+    else
+    {
+      strncpy(tstr,errortext+(sizeof(char)*j*etextw),etextw);
+      tstr[etextw] = 0;
+      strcat(rs.displaylayer_rowset[i].rowtext,tstr);
+      if ((strlen(tstr) & 1) != 0)
+        strcat(rs.displaylayer_rowset[i].rowtext," ");
+    }
+    for (j=0;j<((boxw-etextw)/2)-1;j++)
+      strcat(rs.displaylayer_rowset[i].rowtext," ");
+    strcat(rs.displaylayer_rowset[i].rowtext,"|");
+  }
+  if (tstr) free(tstr);
+  tstr = NULL;
+  i++;
+  strcpy(rs.displaylayer_rowset[i].rowtext,"|");
+  for (j=0;j<((boxw-6)/2)-1;j++)
+    strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext,"+----+");
+  for (j=0;j<((boxw-6)/2)-1;j++)
+    strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext,"|");
+  i++;
+  strcpy(rs.displaylayer_rowset[i].rowtext,"|");
+  for (j=0;j<((boxw-6)/2)-1;j++)
+    strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext,"| OK |"); //Need to do the inversing elsewhere
+  for (j=0;j<((boxw-6)/2)-1;j++)
+    strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext,"|");
+  i++;
+  strcpy(rs.displaylayer_rowset[i].rowtext,"|");
+  for (j=0;j<((boxw-6)/2)-1;j++)
+    strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext,"+----+");
+  for (j=0;j<((boxw-6)/2)-1;j++)
+    strcat(rs.displaylayer_rowset[i].rowtext," ");
+  strcat(rs.displaylayer_rowset[i].rowtext,"|");
+  i++;
+  strcpy(rs.displaylayer_rowset[i].rowtext,"+");
+  for (j=0;j<boxw-2;j++) strcat(rs.displaylayer_rowset[i].rowtext,"-");
+  strcat(rs.displaylayer_rowset[i].rowtext,"+");
+  
+  //Draw this at (boxx,boxy)!
+  
+  /*
+  printf("\033[%d;%dH",boxy+4+etexth,boxx+(boxw/2)-1);
+  */
+  
   //... Finish this ...
   
 }
