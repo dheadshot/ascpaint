@@ -3,6 +3,9 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/ioctl.h>
 
 #include "qdinp2.h"
 
@@ -16,7 +19,116 @@ int toolmode = TOOL_EDIT;
 char palettemode = '#';
 char inversepalettemode = ' ';
 
+void cleanscr()
+{
+  printf("\033[?1049h\033[2J\033[?1049l\033[?25h");
+}
+
+void on_die(int i)
+{
+  exit(1);
+}
+
+void on_resize(int i)
+{
+  getscreensize(&rs);
+}
+
+int maxrowlength(txtrow *arowset, int numrows)
+{
+  int i, maxn = -1;
+  for (i=0;i<numrows;i++)
+  {
+//    if (arowset[i].rowtext && strlen(arowset[i].rowtext) > maxn)
+//      maxn = strlen(arowset[i].rowtext);
+    if (arowset[i].rowtext && arowset[i].rowsize > maxn)
+      maxn = arowset[i].rowsize;
+  }
+  return maxn;
+}
+
+int minrowlength(txtrow *arowset, int numrows)
+{
+  int i, minn = -1;
+  for (i=0;i<numrows;i++)
+  {
+//    if (arowset[i].rowtext && (strlen(arowset[i].rowtext) < minn || minn < 0))
+//      minn = strlen(arowset[i].rowtext);
+    if (arowset[i].rowtext && (arowset[i].rowsize < minn || minn < 0))
+      minn = arowset[i].rowsize;
+  }
+  return minn;
+}
+
 void DoError(char *errortext)
+{
+  int dworks = 0, i;
+  if (rs.displaylayer_rowset)
+  {
+    if (rs.dlrs_size >= rs.sheight)
+    {
+      //use this
+      if (minrowlength(rs.displaylayer_rowset, rs.dlrs_size) >= rs.swidth)
+        dworks = 1;
+      else
+      {
+        freerowset(rs.displaylayer_rowset);
+        rs.displaylayer_rowset = NULL;
+      }
+    }
+    else
+    {
+      //free it and rebuild
+      freerowset(rs.displaylayer_rowset);
+      rs.displaylayer_rowset = NULL;
+    }
+  }
+  if (!dworks)
+  {
+    //Create new display layer to build on
+    if ((rs.displaylayer_rowset = makerowset(rs.swidth,rs.sheight)) == NULL)
+    {
+      DoSimpleError(errortext);
+      return;
+    }
+    rs.dlrs_size = rs.sheight;
+  }
+  else
+  {
+    //Clear the display layer
+    for (i=0;i<rs.dlrs_size;i++)
+    {
+      rs.displaylayer_rowset[i].rowtext[0] = 0;
+      rs.displaylayer_rowset[i].rowsize = 0;
+    }
+  }
+  
+  //Build the dialogue box on the display layer
+  
+  int etextw = strlen(errortext);
+  if ((etextw & 1) != 0) etextw++;
+  int etexth = (etextw / (rs.swidth-2));
+  if (etextw % (rs.swidth - 2) != 0)
+  {
+    etexth++;
+  }
+  if (etextw > rs.swidth - 2)
+  {
+    etextw = rs.swidth - 2;
+  }
+  int boxh = etexth + 7;
+  int boxw = etextw + 2;
+  if (boxw < rs.swidth) boxw += 2;
+  if (boxw < 10) boxw = 10;
+  //	printf("boxw=%d",boxw);
+  int boxx = (rs.swidth - boxw) / 2;
+  int boxy = (rs.sheight - boxh) / 2;
+  
+  //... Finish this ...
+  
+}
+
+void DoSimpleError(char *errortext)
 {
   /*
    * Text:
@@ -47,7 +159,7 @@ void DoError(char *errortext)
   int boxw = etextw + 2;
   if (boxw < rs.swidth) boxw += 2;
   if (boxw < 10) boxw = 10;
-  	printf("boxw=%d",boxw);
+  //	printf("boxw=%d",boxw);
   int boxx = (rs.swidth - boxw) / 2;
   int boxy = (rs.sheight - boxh) / 2;
   
@@ -132,9 +244,44 @@ void DoError(char *errortext)
   printf("\033[%d;%dH",oy,ox);
 }
 
+txtrow *makerowset(int width, int height)
+{
+  txtrow *thers = NULL;
+  thers = (txtrow *) malloc(sizeof(txtrow)*height);
+  if (!thers) return NULL;
+  memset(thers,0,sizeof(txtrow)*height);
+  int i;
+  for (i=0;i<height;i++)
+  {
+    thers[i].rownum = i;
+    thers[i].rowtext = (char *) malloc(sizeof(char)*(1+width));
+    if (thers[i].rowtext == NULL)
+    {
+      int j;
+      for (j=0;j<i;j++) free(thers[j].rowtext);
+      free(thers);
+      return NULL;
+    }
+    thers[i].allocsize = width+1;
+    memset(thers[i].rowtext,' ',width);
+    thers[i].rowsize = width;
+  }
+  return thers;
+}
+
 int getscreensize(rows *ars)
 {
   int ox, oy, x, y;
+  struct winsize ws;
+  memset(&ws,0,sizeof(struct winsize));
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_col != 0 && ws.ws_row != 0)
+  {
+    x = ws.ws_col;
+    y = ws.ws_row;
+    ars->swidth = x;
+    ars->sheight = y;
+    return 1;
+  }
   if (!getansicursorpos(&oy, &ox)) return 0;
   printf("\033[9999;9999H");
   getansicursorpos(&y, &x); //For some reason, this is necessary...
@@ -192,6 +339,16 @@ int freerow(txtrow *arow)
   free(arow);
 }
 
+int freerowset(txtrow *arowset, int numrows)
+{
+  int i;
+  for (i=0;i<numrows;i++)
+  {
+    if (arowset[i].rowtext) free(arowset[i].rowtext);
+  }
+  free(arowset);
+}
+
 int expandtabs(char *ostr, int omax, const char *istr)
 {
   int i = 0, j = 0;
@@ -241,6 +398,11 @@ int main(int argc, char *argv[])
   rs.displaylayer_rowset = NULL;
   rs.dlrs_size = 0;
   
+  atexit(cleanscr);
+  signal(SIGTERM, on_die);
+  signal(SIGWINCH, on_resize);
+  printf("\033[?1049h");
+  
   if (argc == 1)
   {
     //New file
@@ -257,7 +419,7 @@ int main(int argc, char *argv[])
     while (ret > 0 || !rline[0] || rline[0]==10 || rline[0]==13 || rline[0]==3);
     if (ret == -3) printf("Out of memory!\n");
     else if (ret == -1) printf("Signal Error!\n");
-    if (ret < 0) return 1;
+    if (ret < 0) exit(1);
     sscanf(rline,"%d",&iwidth);
     if (rline[strlen(rline)-1] != 10 && rline[strlen(rline)-1] != 13) printf("\n");
     //printf("Image Height: ");
@@ -272,13 +434,13 @@ int main(int argc, char *argv[])
     while (ret > 0 || !rline[0] || rline[0]==10 || rline[0]==13 || rline[0]==3);
     if (ret == -3) printf("Out of memory!\n");
     else if (ret == -1) printf("Signal Error!\n");
-    if (ret < 0) return 1;
+    if (ret < 0) exit(1);
     sscanf(rline,"%d",&iheight);
     if (rline[strlen(rline)-1] != 10 && rline[strlen(rline)-1] != 13) printf("\n");
     if (iwidth < 1 || iheight < 1 )
     {
       printf("Error: Width and height must be positive numbers!\n");
-      return 1;
+      exit(1);
     }
     printf("Creating image as %dx%d.\n", iwidth, iheight);
   }
@@ -290,5 +452,5 @@ int main(int argc, char *argv[])
   //getkeyn();
   printf("Screen Size = %d x %d\n", rs.swidth, rs.sheight);
   DoError("No Program yet!");
-  return 0;
+  exit(0);
 }
