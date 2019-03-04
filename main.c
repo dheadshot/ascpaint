@@ -22,7 +22,7 @@ char inversepalettemode = ' ';
 void cleanscr()
 {
   freers_subs(&rs);
-  printf("\033[?1049h\033[2J\033[?1049l\033[?25h");
+  printf("\033[?1049h\033[2J\033[?1049l\033[?25h\033[1;1H");
 }
 
 void on_die(int i)
@@ -75,24 +75,29 @@ void DoError(char *errortext)
         dworks = 1;
       else
       {
-        freerowset(rs.displaylayer_rowset);
+        freerowset(rs.displaylayer_rowset, rs.dlrs_size);
         rs.displaylayer_rowset = NULL;
       }
     }
     else
     {
       //free it and rebuild
-      freerowset(rs.displaylayer_rowset);
+      freerowset(rs.displaylayer_rowset, rs.dlrs_size);
       rs.displaylayer_rowset = NULL;
     }
   }
   if (!dworks)
   {
     //Create new display layer to build on
-    if ((rs.displaylayer_rowset = makerowset(rs.swidth,rs.sheight)) == NULL
-       || (rs.dlformat = makerowset(rs.swidth,rs.sheight)) == NULL )
+    if (rs.dlformat_rowset)
     {
-      if (rs.displaylayer_rowset) freerowset(rs.displaylayer_rowset);
+      freerowset(rs.dlformat_rowset, rs.dlrs_size);
+      rs.dlformat_rowset = NULL;
+    }
+    if ((rs.displaylayer_rowset = makerowset(rs.swidth,rs.sheight)) == NULL
+       || (rs.dlformat_rowset = makerowset(rs.swidth,rs.sheight)) == NULL )
+    {
+      if (rs.displaylayer_rowset) freerowset(rs.displaylayer_rowset, rs.sheight);
       DoSimpleError(errortext);
       return;
     }
@@ -135,12 +140,14 @@ void DoError(char *errortext)
   int j;
   for (j=0;j<boxw-2;j++) strcat(rs.displaylayer_rowset[i].rowtext,"-");
   strcat(rs.displaylayer_rowset[i].rowtext,"+");
-  i++
+  rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
+  i++;
   strcpy(rs.displaylayer_rowset[i].rowtext,"| ");
   for (j=0;j<(boxw/2)-5;j++) strcat(rs.displaylayer_rowset[i].rowtext," ");
   strcat(rs.displaylayer_rowset[i].rowtext,"ERROR!");
   for (j=0;j<(boxw/2)-5;j++) strcat(rs.displaylayer_rowset[i].rowtext," ");
   strcat(rs.displaylayer_rowset[i].rowtext," |");
+  rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
   i++;
   strcpy(rs.displaylayer_rowset[i].rowtext,"+");
   for (j=0;j<boxw-2;j++) strcat(rs.displaylayer_rowset[i].rowtext,"-");
@@ -150,6 +157,7 @@ void DoError(char *errortext)
   if (tstr) tstr[0] = 0;
   for (k=0; k<etexth; k++)
   {
+    rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
     i++;
     strcpy(rs.displaylayer_rowset[i].rowtext,"|");
     for (j=0;j<((boxw-etextw)/2)-1;j++)
@@ -166,7 +174,7 @@ void DoError(char *errortext)
     }
     else
     {
-      strncpy(tstr,errortext+(sizeof(char)*j*etextw),etextw);
+      strncpy(tstr,errortext+(sizeof(char)*k*etextw),etextw);
       tstr[etextw] = 0;
       strcat(rs.displaylayer_rowset[i].rowtext,tstr);
       if ((strlen(tstr) & 1) != 0)
@@ -178,6 +186,7 @@ void DoError(char *errortext)
   }
   if (tstr) free(tstr);
   tstr = NULL;
+  rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
   i++;
   strcpy(rs.displaylayer_rowset[i].rowtext,"|");
   for (j=0;j<((boxw-6)/2)-1;j++)
@@ -186,6 +195,7 @@ void DoError(char *errortext)
   for (j=0;j<((boxw-6)/2)-1;j++)
     strcat(rs.displaylayer_rowset[i].rowtext," ");
   strcat(rs.displaylayer_rowset[i].rowtext,"|");
+  rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
   i++;
   strcpy(rs.displaylayer_rowset[i].rowtext,"|");
   for (j=0;j<((boxw-6)/2)-1;j++)
@@ -199,6 +209,7 @@ void DoError(char *errortext)
   for (j=0;j<((boxw-6)/2)-1;j++)
     strcat(rs.displaylayer_rowset[i].rowtext," ");
   strcat(rs.displaylayer_rowset[i].rowtext,"|");
+  rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
   i++;
   strcpy(rs.displaylayer_rowset[i].rowtext,"|");
   for (j=0;j<((boxw-6)/2)-1;j++)
@@ -207,12 +218,24 @@ void DoError(char *errortext)
   for (j=0;j<((boxw-6)/2)-1;j++)
     strcat(rs.displaylayer_rowset[i].rowtext," ");
   strcat(rs.displaylayer_rowset[i].rowtext,"|");
+  rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
   i++;
   strcpy(rs.displaylayer_rowset[i].rowtext,"+");
   for (j=0;j<boxw-2;j++) strcat(rs.displaylayer_rowset[i].rowtext,"-");
   strcat(rs.displaylayer_rowset[i].rowtext,"+");
+  rs.displaylayer_rowset[i].rowsize = strlen(rs.displaylayer_rowset[i].rowtext);
+  i++;
+  for (j=i;j<rs.dlrs_size;j++)
+  {
+    rs.displaylayer_rowset[j].rowtext[0] = 0;
+    rs.displaylayer_rowset[j].rowsize = 0;
+  }
   
   //Draw this at (boxx,boxy)!
+  rs.dl_x = boxx;
+  rs.dl_y = boxy;
+  rs.dl_cx = (boxw/2)-1;
+  rs.dl_cy = 4+etexth;
   rs.show_dl = 1;
   UpdateDisplay();
   
@@ -221,6 +244,12 @@ void DoError(char *errortext)
   */
   
   //... Finish this ...
+  //int n;
+  do
+  {
+    i = (getkeyn() & OK_NOMODMAX);
+  }
+  while (i!=10 && i!=13 && i!=OK_NENTER && i!=OK_ENL);
   
 }
 
@@ -347,16 +376,17 @@ void UpdateDisplay()
   if (rs.show_dl)
   {
     //Draw the display layer
-    x = rs.dl_x;
-    y = rs.dl_y;
+    x = rs.dl_x +1;
+    y = rs.dl_y +1;
     for (i=0;i<rs.dlrs_size;i++)
     {
+      if ((y+i)>=rs.sheight) break;
       printf("\033[%d;%dH\033[0m",y+i,x);
       preformatted = 0;
       for (j=0;j<rs.displaylayer_rowset[i].rowsize;j++)
       {
         
-        if (j<rs.dlformat_rowset[i].rowsize)
+        if (j<rs.dlformat_rowset[i].rowsize && (j+x)<=rs.swidth)
         {
           if (preformatted != (rs.dlformat_rowset[i].rowtext[j] & ~(DLFORMAT_IGNORE)))
           {
@@ -364,7 +394,7 @@ void UpdateDisplay()
             {
               printf("\033[0m");
             }
-            if ((rs.dlformat_rowset[i].rowtext[j] & DL_INVERT) != 0)
+            if ((rs.dlformat_rowset[i].rowtext[j] & DLFORMAT_INVERT) != 0)
             {
               printf("\033[7m");
             }
@@ -390,10 +420,12 @@ void UpdateDisplay()
           preformatted = 0;
         }
         
-        printf("%c",rs.displaylayer_rowset[i].rowset[j]);
+        printf("%c",rs.displaylayer_rowset[i].rowtext[j]);
         
       }
     }
+    printf("\033[%d;%dH",y+rs.dl_cy,x+rs.dl_cx);
+    
   }
 }
 
@@ -615,6 +647,7 @@ int main(int argc, char *argv[])
   //getscreensize(&rs);
   //getkeyn();
   printf("Screen Size = %d x %d\n", rs.swidth, rs.sheight);
+  //for (x=0;x<100;x++) printf("qwertyuiopasdfghjklzxcvbnm");
   DoError("No Program yet!");
   exit(0);
 }

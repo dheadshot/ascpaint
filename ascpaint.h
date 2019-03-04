@@ -34,6 +34,7 @@ typedef struct rows_struct
   int dl_x, dl_y; //offset for display layer from screen
   int view_x, view_y; //View offsets
   int cx, cy; //cursor offsets
+  int dl_cx, dl_cy; //Cursor position on display layer, if show_dl is set.
   int swidth, sheight; //screen size
   unsigned char show_ml : 1; //Show the move layer
   unsigned char show_dl : 1; //Show the display layer
