@@ -692,6 +692,91 @@ int deltextfromrow(txtrow *arow, int tlen, int offset)
   numedits++;
 }
 
+int overwritetext(char *text, int x, int y, int allowsemiinsert)
+{
+  //Returns: 1=success, 0=Cannot fit -1=bad params, -2=OoM & data corrupted!
+  if (!text) return -1;
+  if (y<0 || y>=rs.rs_size) return -1;
+  if (x<0 || (allowsemiinsert && x>=rs.rowset[y].rowsize)) return -1;
+  if (((!allowsemiinsert) && x+strlen(text)>rs.rowset[y].rowsize)) return 0;
+  if (allowsemiinsert && x+strlen(text)+1>rs.rowset[y].allocsize)
+  {
+    rs.rowset[y].rowtext = realloc(rs.rowset[y].rowtext, x+strlen(text)+1);
+    if (!rs.rowset[y].rowtext) return -2; //OoM!
+  }
+  strcpy(rs.rowset[y].rowtext + (sizeof(char)*x), text);
+  return 1;
+}
+
+int movecursor_internal(int by_x, int by_y)
+//Move the cursor relative to it's current position, in rs.
+{
+  /*
+   * Returns:
+   * 0  = Did not move cursor!
+   * 1  = Moved Cursor somewhat by x
+   * 3  = Moved Cursor fully by x
+   * 4  = Moved Cursor somewhat by y
+   * 5  = Moved Cursor somewhat by x and y
+   * 7  = Moved Cursor fully by x and somewhat by y
+   * 12 = Moved Cursor fully by y
+   * 13 = Moved Cursor fully by y and somewhat by x
+   * 15 = Moved Cursor fully by x and y
+   * -1 = Other Error!
+   */
+  int ocx, ocy, ncx, ncy;
+  ocx = rs.cx;
+  ocy = rs.cy;
+  ncy = ocy + by_y;
+  if (ncy>rs.rs_size) ncy = rs.rs_size;
+  else if (ncy<0) ncy = 0;
+  ncx = ocx + by_x;
+  if (ncx<0) ncx = 0;
+  else if (ncx>rs.rowset[ncy].rowsize) ncx = rs.rowset[ncy].rowsize;
+  
+  int reta, retb;
+  if (ncx == ocx+by_x) reta = 3;
+  else if (ncx == ocx) reta=0;
+  else reta = 1;
+  if (ncy == ocy+by_y) retb = 12;
+  else if (ncy == ocy) retb=0;
+  else retb = 4;
+  return (reta | retb);
+}
+
+int movecursor(int by_x, int by_y)
+//Move the cursor relative to it's current position;
+{
+  /*
+   * Returns (an OR of):
+   * 0  = Did not move cursor!
+   * b0 = Moved Cursor somewhat by x
+   * b1 = Moved Cursor fully by x
+   * b2 = Moved Cursor somewhat by y
+   * b3 = Moved Cursor fully by y
+   * b4 = Updated Screen
+   * -1 = Other Error!
+   */
+  int ocx = rs.cx, ocy = rs.cy;
+  int a = movecursor_internal(by_x, by_y), b=0;
+  if (a>0)
+  {
+    if (rs.cx>=(rs.view_x+rs.swidth) || rs.cx<rs.view_x)
+    {
+      rs.view_x = rs.cx - rs.swidth;
+      b++;
+    }
+    if (rs.cy>=(rs.view_y+rs.sheight) || rs.cy<rs.view_y)
+    {
+      rs.view_y = rs.cy - rs.sheight;
+      b++;
+    }
+    if (b) UpdateDisplay();
+    else printf("\033[%d;%dH", rs.cy - rs.view_y, rs.cx - rs.view_x);
+  }
+  return (a | (b*16));
+}
+
 int main(int argc, char *argv[])
 {
   int iwidth = 0, iheight = 0;

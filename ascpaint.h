@@ -57,6 +57,18 @@ void freerowset(txtrow *arowset, int numrows);
 void freers_subs(rows *ars);
 int expandtabs(char *ostr, int omax, const char *istr);
 int deltextfromrow(txtrow *arow, int tlen, int offset);
+int overwritetext(char *text, int x, int y, int allowsemiinsert);  //Returns: 1=success, 0=Cannot fit text in, -1=bad params, -2=OoM & data corrupted!
+int movecursor_internal(int by_x, int by_y);  //Move the cursor relative to it's current position, in rs.
+int movecursor(int by_x, int by_y);
+/* Move the cursor relative to it's current position;
+ * Returns (an OR of):
+ * 0  = Did not move cursor!
+ * b0 = Moved Cursor somewhat by x
+ * b1 = Moved Cursor fully by x
+ * b2 = Moved Cursor somewhat by y
+ * b3 = Moved Cursor fully by y
+ * b4 = Updated Screen
+ * -1 = Other Error!  */
 int main(int argc, char *argv[]);
 
 #endif
