@@ -35,6 +35,7 @@ void on_resize(int i)
   getscreensize(&rs);
   
   //Repaint screen
+  UpdateDisplay();
 }
 
 int maxrowlength(txtrow *arowset, int numrows)
@@ -251,6 +252,10 @@ void DoError(char *errortext)
   }
   while (i!=10 && i!=13 && i!=OK_NENTER && i!=OK_ENL);
   
+  rs.show_dl = 0;
+  UpdateDisplay();
+  
+  
 }
 
 void DoSimpleError(char *errortext)
@@ -371,9 +376,116 @@ void DoSimpleError(char *errortext)
 
 void UpdateDisplay()
 {
-  int i,j, x, y, preformatted = 0;
-  //Do other layers...
-  if (rs.show_dl)
+  int i,j, x, y, k, preformatted = 0, sw;
+  
+  sw = rs.swidth; //In case of interrupts
+  char *tstr = (char *) malloc(sizeof(char)*(1+sw));
+  if (tstr && rs.rowset != NULL)
+  {
+    memset(tstr,0,sizeof(char)*(1+sw));
+    
+    //Do Layer
+    y = rs.view_y;
+    if (y+rs.sheight>rs.rs_size && rs.rs_size>rs.sheight)
+      y = rs.rs_size-rs.sheight;
+    if (rs.rs_size < rs.sheight)
+    {
+      //y+a+(rs_size/2)=sheight .: y+a=sheight-(rs_size/2)
+      //(2*a)+(rs_size)=sheight .: a=(sheight-rs_size)/2
+      //.: y=sheight - (rs_size/2) - (sheight/2) - (rs_size/2)
+      //    =(sheight/2) - rs_size.  QED
+      y = (rs.sheight/2) - rs.rs_size;
+    }
+    for (i = y; i<rs.sheight; i++)
+    {
+      if (i+y>=0 && i+y<rs.rs_size)
+      {
+        x = rs.view_x;
+        if (x+sw>rs.rowset[i+y].rowsize && rs.rowset[i+y].rowsize>sw)
+        {
+          x = rs.rowset[i+y].rowsize - sw;
+        }
+        if (rs.rowset[i+y].rowsize < sw)
+        {
+          x = (sw/2) - rs.rowset[i+y].rowsize;
+        }
+        //if (x<0) 
+        //{ a=0 ; b=sw
+        //} else {a=x; b=x+sw}
+        ////if (a==x) b=a+sw else b=sw
+        //if (b+a>rowsize) b=rowsize - a
+        if (x<0)
+        {
+          j=0;
+          k=sw;
+        }
+        else
+        {
+          j=x;
+          k=x+sw;
+        }
+        if (j+k>rs.rowset[i+y].rowsize) k = rs.rowset[i+y].rowsize - j;
+        strncpy(tstr,rs.rowset[i+y].rowtext+(sizeof(char)*j),k);
+        if (x<0) j=-x;
+        else j=0;
+        printf("\033[%d;%dH\033[0m%s",i+1,j,tstr);
+        
+      }
+    } //End For
+    
+  }
+  if (tstr) free(tstr);
+  
+  preformatted = 0;
+  if (rs.show_ml && rs.movelayer_rowset != NULL)
+  {
+    x = rs.view_x - rs.ml_x;
+    y = rs.view_y - rs.ml_y;
+    for (i=0; i<rs.sheight; i++)
+    {
+      if (i+y>=0 && i+y<rs.mlrs_size)
+      {
+        printf("\033[%d;%dH\033[0m",i+1,1);
+        for (j=0; j<rs.swidth; j++)
+        {
+          if (j+x>=0 && j+y<rs.movelayer_rowset[y+i].rowsize)
+          {
+            if (preformatted != 71)
+            {
+              printf("\033[7;1m");
+              preformatted = 71;
+            }
+            printf("%c",rs.movelayer_rowset[y+i].rowtext[x+j]);
+          }
+          else
+          {
+            if (preformatted)
+            {
+              printf("\033[0m");
+              preformatted = 0;
+            }
+          }
+        } //End For
+      }
+      else if (preformatted)
+      {
+        printf("\033[0m");
+        preformatted = 0;
+      }
+    } //End For
+  } //End ML Draw
+  
+  //Move Cursor
+  i = rs.cx - rs.view_x;
+  if (i<0) i=0;
+  else if (i>=sw) i = sw-1;
+  j = rs.cy - rs.view_y;
+  if (j<0) j=0;
+  else if (j>=rs.sheight) j=rs.sheight - 1;
+  printf("\033[%d;%dH\033[0m",j+1,i+1);
+  
+  preformatted = 0;
+  if (rs.show_dl && rs.displaylayer_rowset != NULL && rs.dlformat_rowset != NULL)
   {
     //Draw the display layer
     x = rs.dl_x +1;
@@ -639,6 +751,13 @@ int main(int argc, char *argv[])
       exit(1);
     }
     printf("Creating image as %dx%d.\n", iwidth, iheight);
+    rs.rowset = makerowset(iwidth, iheight);
+    if (!rs.rowset)
+    {
+      printf("Out of Memory!\n");
+      exit(2);
+    }
+    rs.rs_size = iheight;
   }
   int x, y;
   //if (getansicursorpos(&y, &x)) printf("gxy");
