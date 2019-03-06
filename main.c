@@ -705,6 +705,31 @@ int overwritetext(char *text, int x, int y, int allowsemiinsert)
     if (!rs.rowset[y].rowtext) return -2; //OoM!
   }
   strcpy(rs.rowset[y].rowtext + (sizeof(char)*x), text);
+  numedits++;
+  return 1;
+}
+
+int insertrow(int at_y, char *rowtext)
+{
+  //Returns: 1=success, -1=bad params, -2=OoM & data corrupted!
+  int i;
+  if (at_y > rs.rs_size || at_y < 0) return -1;
+  if (!rowtext) return -1;
+  rs.rowset = realloc(rs.rowset, (rs.rs_size + 1)*sizeof(txtrow));
+  if (!rs.rowset) return -2; //OoM
+  if (at_y != rs.rs_size)
+  {
+    memmove(rs.rowset+((at_y+1)*sizeof(txtrow)), rs.rowset+(at_y*sizeof(txtrow)),sizeof(txtrow)*(rs.row_size - at_y));
+    for (i = at_y+1; i<=rs.rs_size; i++) rs.rowset[i].rownum++;
+  }
+  rs.rs_size++;
+  memset(rs.rowset[at_y], 0, sizeof(txtrow));
+  rs.rowset[at_y].rowtext = (char *) malloc(sizeof(char)*(1+strlen(rowtext)));
+  if (!rs.rowset[at_y].rowtext) return -2; //OoM!
+  rs.rowset[at_y].allocsize = strlen(rowtext)+1;
+  strcpy(rs.rowset[at_y].rowtext, rowtext);
+  rs.rowset[at_y].rowsize = strlen(rowtext);
+  rs.rowset[at_y].rownum = at_y;
   return 1;
 }
 

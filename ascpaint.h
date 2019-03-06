@@ -58,6 +58,7 @@ void freers_subs(rows *ars);
 int expandtabs(char *ostr, int omax, const char *istr);
 int deltextfromrow(txtrow *arow, int tlen, int offset);
 int overwritetext(char *text, int x, int y, int allowsemiinsert);  //Returns: 1=success, 0=Cannot fit text in, -1=bad params, -2=OoM & data corrupted!
+int insertrow(int at_y, char *rowtext);  //Returns: 1=success, -1=bad params, -2=OoM & data corrupted!
 int movecursor_internal(int by_x, int by_y);  //Move the cursor relative to it's current position, in rs.
 int movecursor(int by_x, int by_y);
 /* Move the cursor relative to it's current position;
