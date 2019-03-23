@@ -733,6 +733,29 @@ int insertrow(int at_y, char *rowtext)
   return 1;
 }
 
+int delrow(int at_y)
+{
+  //Returns: 1=success, -1=bad params, -2=OoM & data corrupted!
+  if (at_y>=rs.rs_size || at_y < 0) return -1;
+  int i;
+  free(rs.rowset[at_y].rowtext);
+  rs.rowset[at_y].rowtext = NULL;
+  rs.rowset[at_y].allocsize = 0;
+  rs.rowset[at_y].rowsize = 0;
+  if (at_y <rs.rs_size - 1)
+  {
+    for (i=at_y;i<rs.rs_size - 1;i++)
+    {
+      memmove(rs.rowset+(i*sizeof(txtrow)), rs.rowset+((i+1)*sizeof(txtrow)), sizeof(txtrow));
+      rs.rowset[i].rownum--;
+    }
+  }
+  rs.rowset = realloc(rs.rowset, (rs.rs_size - 1)*sizeof(txtrow));
+  if (!rs.rowset) return -2; //OoM and data corrupted!
+  rs.rs_size--;
+  return 1;
+}
+
 int movecursor_internal(int by_x, int by_y)
 //Move the cursor relative to it's current position, in rs.
 {
