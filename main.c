@@ -628,6 +628,7 @@ int inserttextinrow(txtrow *arow, char *text, int offset)
          text,
          strlen(text)*sizeof(char));
   numedits++;
+  return 1;
 }
 
 void freerow(txtrow *arow)
@@ -657,6 +658,7 @@ void freers_subs(rows *ars)
 
 int expandtabs(char *ostr, int omax, const char *istr)
 {
+  //Do this when loading from a file - ASCII art should NOT contain tabs!
   int i = 0, j = 0;
   for (i=0; istr[i] != 0; i++)
   {
@@ -690,6 +692,7 @@ int deltextfromrow(txtrow *arow, int tlen, int offset)
           arow->rowtext + (sizeof(char)*(offset+tlen)),
           sizeof(char) * (arow->rowsize + tlen - offset)); //-1 +1
   numedits++;
+  return 1;
 }
 
 int overwritetext(char *text, int x, int y, int allowsemiinsert)
@@ -753,6 +756,35 @@ int delrow(int at_y)
   rs.rowset = realloc(rs.rowset, (rs.rs_size - 1)*sizeof(txtrow));
   if (!rs.rowset) return -2; //OoM and data corrupted!
   rs.rs_size--;
+  return 1;
+}
+
+int breakrowtonl(int at_x, int at_y) //Insert new line
+{
+  //Returns: 1=success, -1=bad params, -2=OoM & data corrupted!
+  if (at_y>=rs.rs_size || at_y < 0) return -1;
+  if (at_x>rs.rowset[at_y].rowsize || at_x < 0) return -1;
+  char *thetext = rs.rowset[at_y].rowtext;
+  if (at_x==rs.rowset[at_y].rowsize)
+  {
+    if (insertrow(at_y+1,"\x00")!=1) return -2;
+  }
+  else
+  {
+    if (insertrow(at_y+1,thetext+(sizeof(char)*at_x))!=1) return -2;
+    thetext[at_x] = 0;
+    rs.rowset[at_y].rowsize = strlen(rs.rowset);
+  }
+}
+
+int joinrowatnl(int at_y) //Deletes a new line at the end of at_y
+{
+  //Returns: 1=success, -1=bad params, -2=OoM, -3=OoM & data corrupted!
+  if (at_y>=rs.rs_size || at_y < 0) return -1;
+  if (at_y == rs.rs_size) return 1; //Doesn't need a change
+  txtrow *arow = &(rs.rowset[at_y]);
+  if (!inserttextinrow(arow, rs.rowset[at_y+1].rowtext, arow->rowsize)) return -2;
+  if (delrow(at_y+1)!=1) return -3;
   return 1;
 }
 

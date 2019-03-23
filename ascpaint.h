@@ -7,6 +7,9 @@
 #define TOOL_LINE 4
 #define TOOL_SELECT 5
 #define TOOL_MOVE 6
+#define TOOL_SHAPE_RECT 7 /* Rectangle in palette char */
+#define TOOL_SHAPE_FRECT 8 /* Filled rectangle in palette char */
+#define TOOL_SHAPE_BOX 9 /* Properly drawn box */
 
 #define DLFORMAT_INVERT 16
 #define DLFORMAT_IGNORE 32
@@ -60,6 +63,8 @@ int deltextfromrow(txtrow *arow, int tlen, int offset);
 int overwritetext(char *text, int x, int y, int allowsemiinsert);  //Returns: 1=success, 0=Cannot fit text in, -1=bad params, -2=OoM & data corrupted!
 int insertrow(int at_y, char *rowtext);  //Returns: 1=success, -1=bad params, -2=OoM & data corrupted!
 int delrow(int at_y);  //Returns: 1=success, -1=bad params, -2=OoM & data corrupted!
+int breakrowtonl(int at_x, int at_y); //Insert new line, Returns: 1=success, -1=bad params, -2=OoM & data corrupted!
+int joinrowatnl(int at_y); //Deletes a new line at the end of at_y, Returns: 1=success, -1=bad params, -2=OoM, -3=OoM & data corrupted!
 int movecursor_internal(int by_x, int by_y);  //Move the cursor relative to it's current position, in rs.
 int movecursor(int by_x, int by_y);
 /* Move the cursor relative to it's current position;
