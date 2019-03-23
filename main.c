@@ -722,11 +722,11 @@ int insertrow(int at_y, char *rowtext)
   if (!rs.rowset) return -2; //OoM
   if (at_y != rs.rs_size)
   {
-    memmove(rs.rowset+((at_y+1)*sizeof(txtrow)), rs.rowset+(at_y*sizeof(txtrow)),sizeof(txtrow)*(rs.row_size - at_y));
+    memmove(rs.rowset+((at_y+1)*sizeof(txtrow)), rs.rowset+(at_y*sizeof(txtrow)),sizeof(txtrow)*(rs.rs_size - at_y));
     for (i = at_y+1; i<=rs.rs_size; i++) rs.rowset[i].rownum++;
   }
   rs.rs_size++;
-  memset(rs.rowset[at_y], 0, sizeof(txtrow));
+  memset(&(rs.rowset[at_y]), 0, sizeof(txtrow));
   rs.rowset[at_y].rowtext = (char *) malloc(sizeof(char)*(1+strlen(rowtext)));
   if (!rs.rowset[at_y].rowtext) return -2; //OoM!
   rs.rowset[at_y].allocsize = strlen(rowtext)+1;
@@ -773,7 +773,7 @@ int breakrowtonl(int at_x, int at_y) //Insert new line
   {
     if (insertrow(at_y+1,thetext+(sizeof(char)*at_x))!=1) return -2;
     thetext[at_x] = 0;
-    rs.rowset[at_y].rowsize = strlen(rs.rowset);
+    rs.rowset[at_y].rowsize = strlen(thetext);
   }
 }
 
