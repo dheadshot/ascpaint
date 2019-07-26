@@ -401,13 +401,16 @@ void UpdateDisplay()
       if (i+y>=0 && i+y<rs.rs_size)
       {
         x = rs.view_x;
-        if (x+sw>rs.rowset[i+y].rowsize && rs.rowset[i+y].rowsize>sw)
+        if (x+sw>rs.rowset[i+y].rowsize && 
+            rs.rowset[i+y].rowsize>sw)
         {
           x = rs.rowset[i+y].rowsize - sw;
         }
         if (rs.rowset[i+y].rowsize < sw)
         {
           x = (sw/2) - rs.rowset[i+y].rowsize;
+          j=0;
+          k=rs.rowset[i+y].rowsize;
         }
         //if (x<0) 
         //{ a=0 ; b=sw
@@ -419,14 +422,19 @@ void UpdateDisplay()
           j=0;
           k=sw;
         }
-        else
+        else if (x<=rs.rowset[i+y].rowsize)
         {
           j=x;
           k=x+sw;
+          //k=sw-x;
         }
+        //TODO: Something is wrong around here - if the screen is wider 
+        // than the image it segfaults! - Think I've fixed it!
         if (j+k>rs.rowset[i+y].rowsize) k = rs.rowset[i+y].rowsize - j;
+        // Where am I going with this? //if (j>rs.rowset[i+y].rowsize) 
         strncpy(tstr,rs.rowset[i+y].rowtext+(sizeof(char)*j),k);
-        if (x<0) j=-x;
+        if (j==0 && x>0) j=x;
+        else if (x<0) j=-x;
         else j=0;
         printf("\033[%d;%dH\033[0m%s",i+1,j,tstr);
         
